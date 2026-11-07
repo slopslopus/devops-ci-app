@@ -1,27 +1,28 @@
-"""Тесты учебного Flask-приложения."""
+"""Модульные тесты HTTP-интерфейса."""
 
 import pytest
-from app.app import create_app
+
+from app import create_app
 
 
-@pytest.fixture(name="client")
-def client_fixture():
-    """Тестовый клиент Flask-приложения."""
-    application = create_app()
-    application.config.update(TESTING=True)
-    with application.test_client() as client:
-        yield client
+@pytest.fixture()
+def client():
+    """Создаёт изолированный тестовый клиент Flask."""
+    app = create_app()
+    app.config.update(TESTING=True)
+    with app.test_client() as test_client:
+        yield test_client
 
 
 def test_health(client):
-    """Маршрут /health возвращает статус ok."""
+    """Проверяет код и тело ответа health endpoint."""
     response = client.get("/health")
     assert response.status_code == 200
     assert response.get_json() == {"status": "ok"}
 
 
 def test_index(client):
-    """Корневой маршрут возвращает описание сервиса."""
+    """Проверяет основные сведения о службе."""
     response = client.get("/")
     assert response.status_code == 200
     assert response.get_json() == {

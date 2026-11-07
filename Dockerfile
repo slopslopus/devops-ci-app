@@ -1,9 +1,9 @@
 FROM python:3.12-slim
 
-LABEL org.opencontainers.image.source="https://github.com/slopslopus/devops-ci-app" \
-      org.opencontainers.image.description="Учебное Flask-приложение для практикума по CI/CD"
+LABEL org.opencontainers.image.source="https://github.com/slopslopus/devops-ci-app"
+LABEL org.opencontainers.image.description="DevOps CI sample application"
 
-RUN useradd --create-home --shell /bin/false app
+RUN useradd --system --no-create-home app
 
 WORKDIR /app
 
