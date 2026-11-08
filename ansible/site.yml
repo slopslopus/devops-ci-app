@@ -1,5 +1,5 @@
 ---
-- name: Deploy devops-ci-app
+- name: Configure and deploy devops VM
   hosts: vm
   become: true
   roles:
