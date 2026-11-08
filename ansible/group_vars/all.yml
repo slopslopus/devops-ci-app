@@ -1,0 +1,6 @@
+---
+app_image: "ghcr.io/slopslopus/devops-ci-app"
+app_tag: "01995dd8491d11e44465bf1a3e5f83fd93e9a187"
+app_container_name: "devops-ci-app"
+app_host_port: 5000
+app_internal_port: 5000

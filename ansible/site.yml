@@ -1,0 +1,9 @@
+---
+- name: Deploy devops-ci-app
+  hosts: vm
+  become: true
+  roles:
+    - base
+    - ssh
+    - nginx
+    - app
