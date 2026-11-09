@@ -1,0 +1,123 @@
+---
+- name: Verify deployed configuration
+  hosts: vm
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Assert OS and architecture
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "Ubuntu"
+          - ansible_distribution_version is version("24.04", "==")
+          - ansible_architecture == "aarch64"
+
+    - name: Check Docker Engine version
+      ansible.builtin.command: docker --version
+      register: docker_version
+      changed_when: false
+
+    - name: Assert Docker Engine is installed
+      ansible.builtin.assert:
+        that:
+          - "'Docker version' in docker_version.stdout"
+
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert Docker service is running
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services["docker.service"].state == "running"
+
+    - name: Check devops user exists
+      ansible.builtin.command: id devops
+      register: devops_user
+      changed_when: false
+
+    - name: Check devops authorized keys
+      ansible.builtin.stat:
+        path: /home/devops/.ssh/authorized_keys
+      register: devops_key
+
+    - name: Assert devops key is installed
+      ansible.builtin.assert:
+        that:
+          - devops_key.stat.exists
+          - devops_key.stat.size > 0
+
+    - name: Check devops passwordless sudo
+      ansible.builtin.command: sudo -n -u devops sudo -n true
+      register: devops_sudo
+      changed_when: false
+
+    - name: Check SSH effective configuration
+      ansible.builtin.command: sshd -T
+      register: sshd_effective
+      changed_when: false
+
+    - name: Assert password authentication is disabled
+      ansible.builtin.assert:
+        that:
+          - "'passwordauthentication no' in sshd_effective.stdout"
+          - "'permitrootlogin no' in sshd_effective.stdout"
+
+    - name: Check UFW status
+      ansible.builtin.command: ufw status
+      register: ufw_status
+      changed_when: false
+
+    - name: Assert firewall allows SSH and HTTP
+      ansible.builtin.assert:
+        that:
+          - "'Status: active' in ufw_status.stdout"
+          - "'22/tcp' in ufw_status.stdout"
+          - "'80/tcp' in ufw_status.stdout"
+
+    - name: Validate nginx configuration
+      ansible.builtin.command: nginx -t
+      register: nginx_config
+      changed_when: false
+
+    - name: Assert nginx service is running
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services["nginx.service"].state == "running"
+
+    - name: Read container facts
+      community.docker.docker_container_info:
+        name: "{{ app_container_name }}"
+      register: container_info
+
+    - name: Assert container is running
+      ansible.builtin.assert:
+        that:
+          - container_info.container.State.Running
+
+    - name: Assert container runs reviewed image
+      ansible.builtin.assert:
+        that:
+          - (app_image + ":" + app_tag) in container_info.container.Config.Image
+
+    - name: Check direct application health
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_host_port }}/health"
+        return_content: true
+      register: direct_health
+
+    - name: Assert direct health payload
+      ansible.builtin.assert:
+        that:
+          - direct_health.status == 200
+          - direct_health.json.status == "ok"
+
+    - name: Check application health through Nginx
+      ansible.builtin.uri:
+        url: "http://127.0.0.1/health"
+        return_content: true
+      register: proxied_health
+
+    - name: Assert proxied health payload
+      ansible.builtin.assert:
+        that:
+          - proxied_health.status == 200
+          - proxied_health.json.status == "ok"
