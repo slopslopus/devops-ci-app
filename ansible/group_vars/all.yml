@@ -1,10 +1,8 @@
 ---
-# Примечание о стенде: GHCR-образ ПР-10 собран только под amd64
-# (exec format error на ARM64-стенде), токен без write:packages.
-# Образ пересобран из того же Dockerfile под arm64 и раздаётся
-# с локального registry хоста (192.168.64.1:5055).
-app_image: "192.168.64.1:5055/devops-ci-app"
-app_tag: "pr11-arm64"
+# Образ публикуется мультиарх (amd64/arm64) в GHCR — VM на ARM64 иначе не запускает amd64-образ.
+# app_tag "latest" — дефолт для ручных запусков; CI переопределяет точным SHA через -e app_tag=$GITHUB_SHA.
+app_image: "ghcr.io/slopslopus/devops-ci-app"
+app_tag: "latest"
 app_container_name: "devops-ci-app"
 app_host_port: 5000
 app_internal_port: 5000

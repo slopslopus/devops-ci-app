@@ -92,18 +92,44 @@ jobs:
           assert payload == {"status": "ok"}, f"unexpected /health payload: {payload}"
           PY
           docker exec smoke id
-      - name: Tag registry image
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          docker tag "devops-ci-app:${GITHUB_SHA}" "${IMAGE_NAME}:${GITHUB_SHA}"
-          docker tag "devops-ci-app:${GITHUB_SHA}" "${IMAGE_NAME}:latest"
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Log in to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: printf '%s\n' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-      - name: Push image
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          docker push "${IMAGE_NAME}:${GITHUB_SHA}"
-          docker push "${IMAGE_NAME}:latest"
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push multiarch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+  deploy:
+    needs: [image]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: [self-hosted, devops-vm]
+    permissions:
+      contents: read
+    concurrency:
+      group: deploy-devops-vm
+      cancel-in-progress: false
+    env:
+      VM_HOST: 192.168.64.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Deploy with Ansible
+        working-directory: ansible
+        run: ansible-playbook site.yml -e app_tag=$GITHUB_SHA
+      - name: Check through Nginx
+        run: curl --fail http://$VM_HOST/health
