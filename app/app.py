@@ -17,7 +17,7 @@ def create_app():
         """Возвращает сведения о службе."""
         return jsonify(
             service="devops-ci-app",
-            version="1.1.0-lyapunov",
+            version="1.0.0",
             status="running",
         )
 
